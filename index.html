@@ -105,6 +105,7 @@ body.font-xlarge .stop-card,.font-xlarge .place-card,.font-xlarge .time-card{lin
 .sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:480px;background:var(--bg);border-radius:16px 16px 0 0;box-shadow:0 -4px 32px rgba(0,0,0,0.25);transition:transform .3s cubic-bezier(.32,.72,0,1);z-index:9999;max-height:70%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-h) + var(--safe-bottom));}
 .sheet.open{transform:translateX(-50%) translateY(0)}
 .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0}
+@keyframes wave{0%,100%{height:4px}50%{height:14px}}
 .sheet-close{position:absolute;top:12px;right:14px;width:30px;height:30px;border-radius:50%;background:var(--bg2);border:none;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)}
 .sheet-body{padding:12px 16px 32px}
 .sheet-body h3{font-family:'Playfair Display',serif;font-size:18px;color:var(--brand);margin:6px 0 6px}
@@ -551,6 +552,17 @@ body.font-xlarge .stop-card,.font-xlarge .place-card,.font-xlarge .time-card{lin
       <h3 id="sh-name"></h3>
       <div id="sh-themes" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px"></div>
       <p class="desc" id="sh-desc"></p>
+      <div id="sh-audio-row" style="margin:10px 0 6px;display:none">
+        <button id="sh-audio-btn" onclick="toggleAudio()" style="display:flex;align-items:center;gap:7px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 13px;border-radius:20px;border:0.5px solid var(--border);background:var(--bg2);cursor:pointer;color:var(--muted)">
+          <span id="sh-audio-icon">🔊</span>
+          <span id="sh-audio-label">Listen</span>
+          <span id="sh-audio-wave" style="display:none;gap:2px;align-items:flex-end;height:14px">
+            <span style="width:3px;border-radius:2px;background:var(--accent);animation:wave 0.8s ease-in-out infinite;animation-delay:0s"></span>
+            <span style="width:3px;border-radius:2px;background:var(--accent);animation:wave 0.8s ease-in-out infinite;animation-delay:0.15s"></span>
+            <span style="width:3px;border-radius:2px;background:var(--accent);animation:wave 0.8s ease-in-out infinite;animation-delay:0.3s"></span>
+          </span>
+        </button>
+      </div>
       <div id="sh-hours" style="display:none;margin-bottom:8px"></div>
       <div class="stop-links" id="sh-links"></div>
     </div>
@@ -922,9 +934,61 @@ function renderMarkers(){
   if(ll.length)map.fitBounds(ll,{padding:[44,44]});
 }
 
+// ── Audio ────────────────────────────────────────────────────────────────────
+const AUDIO_BASE = 'https://raw.githubusercontent.com/mcmahonag/Pullman-Cultural-Trail-2.0/main/audio/';
+let ttsPlaying = false;
+let audioEl = null;
+
+function getAudioEl(){
+  if(!audioEl){ audioEl = new Audio(); audioEl.onended = stopAudio; audioEl.onerror = ()=>{ audioEl=null; ttsPlaying=false; ttsPlayFallback(); }; }
+  return audioEl;
+}
+
+function setAudioBtnState(playing){
+  const btn = document.getElementById('sh-audio-btn');
+  const icon = document.getElementById('sh-audio-icon');
+  const label = document.getElementById('sh-audio-label');
+  const wave = document.getElementById('sh-audio-wave');
+  if(btn){ btn.style.color=playing?'var(--accent)':''; btn.style.borderColor=playing?'var(--accent)':''; }
+  if(icon) icon.textContent = playing ? '⏸' : '🔊';
+  if(label) label.textContent = playing ? (currentLang==='es'?'Pausar':'Stop') : (currentLang==='es'?'Escuchar':'Listen');
+  if(wave) wave.style.display = playing ? 'flex' : 'none';
+}
+
+function stopAudio(){
+  if(audioEl){ audioEl.pause(); audioEl.src=''; }
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  ttsPlaying = false;
+  setAudioBtnState(false);
+}
+
+function ttsPlayFallback(){
+  // Browser TTS fallback if MP3 fails to load
+  if(!window.speechSynthesis || !currentSheetStop) return;
+  const desc = currentLang==='es' && stopDescES[currentSheetStop.id] ? stopDescES[currentSheetStop.id] : currentSheetStop.desc;
+  if(!desc) return;
+  const utt = new SpeechSynthesisUtterance(desc);
+  utt.lang = currentLang==='es' ? 'es-US' : 'en-US';
+  utt.rate = 0.95;
+  utt.onstart = ()=>{ ttsPlaying=true; setAudioBtnState(true); };
+  utt.onend = utt.onerror = stopAudio;
+  window.speechSynthesis.speak(utt);
+}
+
+function toggleAudio(){
+  if(ttsPlaying){ stopAudio(); return; }
+  if(!currentSheetStop) return;
+  const lang = currentLang==='es' ? 'es' : 'en';
+  const src = `${AUDIO_BASE}${currentSheetStop.id}-${lang}.mp3`;
+  const el = getAudioEl();
+  el.src = src;
+  el.play().then(()=>{ ttsPlaying=true; setAudioBtnState(true); }).catch(()=>{ ttsPlaying=false; ttsPlayFallback(); });
+}
+
 function closeSheet(){
   const s=document.getElementById('sheet');
   if(s) s.classList.remove('open');
+  stopAudio();
 }
 
 function openDemoSheet(){
@@ -1001,6 +1065,7 @@ function closeDemoSheet(){
 }
 
 function showSheet(s){
+  stopAudio();
   currentSheetStop=s;
   const name = currentLang==='es'&&stopNameKey[s.id] ? t(stopNameKey[s.id]) : s.name;
   const desc = currentLang==='es'&&stopDescES[s.id] ? stopDescES[s.id] : s.desc;
@@ -1069,6 +1134,15 @@ function showSheet(s){
     if(s.link) le.innerHTML+=`<a class="stop-link" href="${s.link}" target="_blank">${t('learn_more')}</a>`;
     if(s.addr) le.innerHTML+=`<a class="stop-link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.addr)}" target="_blank">${t('open_in_maps')}</a>`;
     if(s.directions) le.innerHTML+=`<a class="stop-link" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=walking" target="_blank">📍 ${currentLang==='es'?'Cómo llegar':'Get directions'}</a>`;
+  }
+  // Audio button
+  const audioRow = document.getElementById('sh-audio-row');
+  const audioLabel = document.getElementById('sh-audio-label');
+  const audioIcon = document.getElementById('sh-audio-icon');
+  if(audioRow){
+    audioRow.style.display = window.speechSynthesis ? 'block' : 'none';
+    if(audioLabel) audioLabel.textContent = currentLang==='es' ? 'Escuchar' : 'Listen';
+    if(audioIcon) audioIcon.textContent = '🔊';
   }
   document.getElementById('sheet').classList.add('open');
 }
