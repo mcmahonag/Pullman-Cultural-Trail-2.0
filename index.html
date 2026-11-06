@@ -940,7 +940,7 @@ let ttsPlaying = false;
 let audioEl = null;
 
 function getAudioEl(){
-  if(!audioEl){ audioEl = new Audio(); audioEl.onended = stopAudio; audioEl.onerror = ()=>{ audioEl=null; ttsPlaying=false; ttsPlayFallback(); }; }
+  if(!audioEl){ audioEl = new Audio(); audioEl.onended = stopAudio; audioEl.onerror = ()=>{ audioEl=null; stopAudio(); }; }
   return audioEl;
 }
 
@@ -982,7 +982,7 @@ function toggleAudio(){
   const src = `${AUDIO_BASE}${currentSheetStop.id}-${lang}.mp3`;
   const el = getAudioEl();
   el.src = src;
-  el.play().then(()=>{ ttsPlaying=true; setAudioBtnState(true); }).catch(()=>{ ttsPlaying=false; ttsPlayFallback(); });
+  el.play().then(()=>{ ttsPlaying=true; setAudioBtnState(true); }).catch(()=>{ stopAudio(); });
 }
 
 function closeSheet(){
