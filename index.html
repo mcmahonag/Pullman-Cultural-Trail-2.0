@@ -1219,7 +1219,7 @@ function renderList(routeKey){
 
 // ── Language / i18n âââââââââââââââââââââââââââââââââ──────
 let currentLang = 'en';
-try{ currentLang = localStorage.getItem('pct-lang')||'en'; }catch(e){}
+try{ const saved=localStorage.getItem('pct-lang'); currentLang=(saved&&localStorage.getItem('pct-lang-set'))?saved:'en'; }catch(e){}
 
 const translations = {
   en: {
@@ -1588,7 +1588,7 @@ function applyDemoSheetLang(){
 
 function toggleLang(){
   currentLang = currentLang==='en'?'es':'en';
-  try{localStorage.setItem('pct-lang',currentLang);}catch(e){}
+  try{localStorage.setItem('pct-lang',currentLang);localStorage.setItem('pct-lang-set','1');}catch(e){}
   document.getElementById('lang-toggle').textContent = currentLang==='en'?'ES':'EN';
   if(typeof gtag!=='undefined') gtag('event','language_switch',{language:currentLang});
   applyLang();
@@ -1677,7 +1677,7 @@ let welcomeLang = currentLang||'en';
 function setWelcomeLang(lang){
   welcomeLang = lang;
   currentLang = lang;
-  try{localStorage.setItem('pct-lang',lang);}catch(e){}
+  try{localStorage.setItem('pct-lang',lang);localStorage.setItem('pct-lang-set','1');}catch(e){}
   const c = welcomeContent[lang];
   const set = (id,val,html=false)=>{ const el=document.getElementById(id); if(el){ if(html) el.innerHTML=val; else el.textContent=val; }};
   set('wc-title',c.title); set('wc-subtitle',c.subtitle); set('wc-desc',c.desc);
@@ -2960,7 +2960,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     </div>
     <div class="route-sheet-actions">
       <button class="route-sheet-btn-start" id="route-sheet-btn-start">Begin Tour →</button>
-      <button class="route-sheet-btn-cancel" onclick="dismissRouteSheet()">Not now</button>
+      <button class="route-sheet-btn-cancel" id="route-sheet-btn-cancel" onclick="dismissRouteSheet()">Not now</button>
     </div>
   </div>
 </div>
